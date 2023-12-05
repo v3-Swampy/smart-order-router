@@ -36,6 +36,16 @@ export const BSC_SWAP_ROUTER_02_ADDRESS =
 export const BSC_V3_MIGRATOR_ADDRESS =
   '0x32681814957e0C13117ddc0c2aba232b5c9e760f';
 
+const CFX_V3_CORE_FACTORY_ADDRESSES =
+  "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7"; // TODO: update
+const CFX_QUOTER_ADDRESSES = "0x78D78E420Da98ad378D7799bE8f4AF69033EB077"; // TODO: update
+const CFX_MULTICALL_ADDRESS = "0xeff0078910f638cd81996cc117bccd3edf2b072f"; // TODO: update
+
+const CFX_TEST_V3_CORE_FACTORY_ADDRESSES =
+  "0x7b972b7302e16fc8838bd69bc49a19911b7887bb"; // TODO: update
+const CFX_TEST_QUOTER_ADDRESSES = "0xb9ba9e3b2f9c56a1d80ca474c71537e0cdc5f4d3"; // TODO: update
+const CFX_TEST_MULTICALL_ADDRESS = "0xfb8927eef261c2def5c5d5f4c191ac904fc4b597"; // TODO: update
+
 export const V3_CORE_FACTORY_ADDRESSES: AddressMap = {
   ...constructSameAddressMap(FACTORY_ADDRESS),
   [ChainId.CELO]: CELO_V3_CORE_FACTORY_ADDRESSES,
@@ -43,6 +53,8 @@ export const V3_CORE_FACTORY_ADDRESSES: AddressMap = {
   [ChainId.OPTIMISM_GOERLI]: OPTIMISM_GOERLI_V3_CORE_FACTORY_ADDRESSES,
   [ChainId.ARBITRUM_GOERLI]: ARBITRUM_GOERLI_V3_CORE_FACTORY_ADDRESSES,
   [ChainId.BSC]: BSC_V3_CORE_FACTORY_ADDRESSES,
+  [ChainId.CFX]: CFX_V3_CORE_FACTORY_ADDRESSES,
+  [ChainId.CFX_TEST]: CFX_TEST_V3_CORE_FACTORY_ADDRESSES,
   // TODO: Gnosis + Moonbeam contracts to be deployed
 };
 
@@ -53,6 +65,8 @@ export const QUOTER_V2_ADDRESSES: AddressMap = {
   [ChainId.OPTIMISM_GOERLI]: OPTIMISM_GOERLI_QUOTER_ADDRESSES,
   [ChainId.ARBITRUM_GOERLI]: ARBITRUM_GOERLI_QUOTER_ADDRESSES,
   [ChainId.BSC]: BSC_QUOTER_ADDRESSES,
+  [ChainId.CFX]: CFX_QUOTER_ADDRESSES,
+  [ChainId.CFX_TEST]: CFX_TEST_QUOTER_ADDRESSES,
   // TODO: Gnosis + Moonbeam contracts to be deployed
 };
 
@@ -70,6 +84,8 @@ export const UNISWAP_MULTICALL_ADDRESSES: AddressMap = {
   [ChainId.OPTIMISM_GOERLI]: OPTIMISM_GOERLI_MULTICALL_ADDRESS,
   [ChainId.ARBITRUM_GOERLI]: ARBITRUM_GOERLI_MULTICALL_ADDRESS,
   [ChainId.BSC]: BSC_MULTICALL_ADDRESS,
+  [ChainId.CFX]: CFX_MULTICALL_ADDRESS,
+  [ChainId.CFX_TEST]: CFX_TEST_MULTICALL_ADDRESS,
   // TODO: Gnosis + Moonbeam contracts to be deployed
 };
 
@@ -193,5 +209,19 @@ export const WETH9: {
     18,
     'WETH',
     'Wrapped Ether'
+  ),
+  [ChainId.CFX]: new Token(
+    ChainId.CFX,
+    "0x14b2d3bc65e74dae1030eafd8ac30c533c976a9b",
+    18,
+    "WCFX",
+    "Wrapped CFX"
+    ),
+  [ChainId.CFX_TEST]: new Token(
+    ChainId.CFX_TEST,
+    "0x2ed3dddae5b2f321af0806181fbfa6d049be47d8",
+    18,
+    "WCFX",
+    "Wrapped CFX"
   ),
 };

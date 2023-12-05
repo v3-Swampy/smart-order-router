@@ -467,6 +467,32 @@ export class AlphaRouter
             }
           );
           break;
+        case ChainId.CFX:
+        case ChainId.CFX_TEST:
+          this.onChainQuoteProvider = new OnChainQuoteProvider(
+            chainId,
+            provider,
+            this.multicall2Provider,
+            {
+              retries: 2,
+              minTimeout: 100,
+              maxTimeout: 1000,
+            },
+            {
+              multicallChunk: 15,
+              gasLimitPerCall: 705_000,
+              quoteMinSuccessRate: 0.15,
+            },
+            {
+              gasLimitOverride: 2_000_000,
+              multicallChunk: 7,
+            },
+            {
+              gasLimitOverride: 2_000_000,
+              multicallChunk: 7,
+            }
+          );
+          break;
         default:
           this.onChainQuoteProvider = new OnChainQuoteProvider(
             chainId,

@@ -157,6 +157,7 @@ export class UniswapMulticallProvider extends IMulticallProvider<UniswapMultical
     const gasLimitPerCall =
       additionalConfig?.gasLimitPerCallOverride ?? this.gasLimitPerCall;
     const blockNumberOverride = providerConfig?.blockNumber ?? undefined;
+//    log.debug({gasLimitPerCall}, "callSameFunctionOnContractWithMultipleParams");
 
     const calls = _.map(functionParams, (functionParam) => {
       const callData = contractInterface.encodeFunctionData(
@@ -171,6 +172,7 @@ export class UniswapMulticallProvider extends IMulticallProvider<UniswapMultical
       };
     });
 
+
     log.debug(
       { calls },
       `About to multicall for ${functionName} at address ${address} with ${functionParams.length} different sets of params`
@@ -179,8 +181,8 @@ export class UniswapMulticallProvider extends IMulticallProvider<UniswapMultical
     const { blockNumber, returnData: aggregateResults } =
       await this.multicallContract.callStatic.multicall(calls, {
         blockTag: blockNumberOverride,
+//        gasLimit: 15000000,
       });
-
     const results: Result<TReturn>[] = [];
 
     const gasUsedForSuccess: number[] = [];
@@ -220,6 +222,7 @@ export class UniswapMulticallProvider extends IMulticallProvider<UniswapMultical
       results,
       approxGasUsedPerSuccessCall: stats.percentile(gasUsedForSuccess, 99),
     };
+
   }
 
   public async callMultipleFunctionsOnSameContract<

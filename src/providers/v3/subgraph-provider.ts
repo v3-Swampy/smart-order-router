@@ -61,7 +61,7 @@ const SUBGRAPH_URL_BY_CHAIN: { [chainId in ChainId]?: string } = {
         "https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-gorli",
     [ChainId.BSC]:
         "https://api.thegraph.com/subgraphs/name/ilyamk/uniswap-v3---bnb-chain",
-    [ChainId.CFX]: "", // TODO: Add mainnet subgraph
+    [ChainId.CFX]: "https://mainnet.congraph.io/subgraphs/name/ianlapham/uniswap-v3",
     [ChainId.CFX_TEST]:
         //    "https://thegraph-espace.conflux123.xyz/subgraphs/name/ianlapham/uniswap-v3",
         "https://testnet.congraph.io/subgraphs/name/ianlapham/uniswap-v3",

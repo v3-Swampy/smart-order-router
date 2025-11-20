@@ -619,6 +619,13 @@ export const USDT_CFX = new Token(
   "USDT",
   "Tether USD"
 );
+export const USDT0_CFX = new Token(
+  ChainId.CFX,
+  "0xaf37e8b6c9ed7f6318979f56fc287d76c30847ff",
+  18,
+  "USDT0",
+  "Tether USDT0"
+);
 export const DAI_CFX = new Token(
   ChainId.CFX,
   "0x74eae367d018a5f29be559752e4b67d01cc6b151",
@@ -653,7 +660,7 @@ export class TokenProvider implements ITokenProvider {
   constructor(
     private chainId: ChainId,
     protected multicall2Provider: IMulticallProvider
-  ) {}
+  ) { }
 
   public async getTokens(
     _addresses: string[],
@@ -723,10 +730,8 @@ export class TokenProvider implements ITokenProvider {
       }
 
       log.info(
-        `Got token symbol and decimals for ${
-          Object.values(addressToToken).length
-        } out of ${addresses.length} tokens on-chain ${
-          providerConfig ? `as of: ${providerConfig?.blockNumber}` : ''
+        `Got token symbol and decimals for ${Object.values(addressToToken).length
+        } out of ${addresses.length} tokens on-chain ${providerConfig ? `as of: ${providerConfig?.blockNumber}` : ''
         }`
       );
     }

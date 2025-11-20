@@ -231,7 +231,7 @@ export class V3PoolProvider implements IV3PoolProvider {
       fee: feeAmount,
       initCodeHashManualOverride: CFX_POOL_INIT_CODE_HASH,
     });
-    log.info(`Computed pool address for factory ${V3_CORE_FACTORY_ADDRESSES[this.chainId]!} token0: ${token0.address}, token1: ${token1.address}, fee: ${feeAmount}. pool address is ${poolAddress}`);
+    log.debug(`Computed pool address for factory ${V3_CORE_FACTORY_ADDRESSES[this.chainId]!} token0: ${token0.address}, token1: ${token1.address}, fee: ${feeAmount}. pool address is ${poolAddress}`);
 
     this.POOL_ADDRESS_CACHE[cacheKey] = poolAddress;
 

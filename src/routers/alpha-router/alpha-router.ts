@@ -1467,19 +1467,24 @@ export class AlphaRouter
       l2GasDataProvider: this.l2GasDataProvider,
     });
 
-    const mixedRouteGasModelPromise = this.mixedRouteGasModelFactory.buildGasModel({
-      chainId: this.chainId,
-      gasPriceWei,
-      v3poolProvider: this.v3PoolProvider,
-      amountToken,
-      quoteToken,
-      v2poolProvider: this.v2PoolProvider,
-    });
+    // const mixedRouteGasModelPromise = this.mixedRouteGasModelFactory.buildGasModel({
+    //   chainId: this.chainId,
+    //   gasPriceWei,
+    //   v3poolProvider: this.v3PoolProvider,
+    //   amountToken,
+    //   quoteToken,
+    //   v2poolProvider: this.v2PoolProvider,
+    // });
 
-    const [v3GasModel, mixedRouteGasModel] = await Promise.all([
-      v3GasModelPromise,
-      mixedRouteGasModelPromise
-    ]);
+    // const [v3GasModel, mixedRouteGasModel] = await Promise.all([
+    //   v3GasModelPromise,
+    //   mixedRouteGasModelPromise
+    // ]).catch(err => {
+    //   throw new Error(`Failed to get gas models: ${err.message}`);
+    // });
+
+    const mixedRouteGasModel: IGasModel<MixedRouteWithValidQuote> = {} as IGasModel<MixedRouteWithValidQuote>;
+    const v3GasModel = await v3GasModelPromise;
 
     metric.putMetric(
       'GasModelCreation',

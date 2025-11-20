@@ -74,10 +74,11 @@ import {
   WXDAI_GNOSIS,
   USDC_CFX,
   USDT_CFX,
-  DAI_CFX,
-//  USDC_CFX_TEST,
+  //  USDC_CFX_TEST,
   USDT_CFX_TEST,
-//  DAI_CFX_TEST,
+  USDT0_CFX,
+  AXCNH_CFX,
+  //  DAI_CFX_TEST,
 } from '../token-provider';
 
 import { IV3PoolProvider } from './pool-provider';
@@ -196,14 +197,15 @@ const BASES_TO_CHECK_TRADES_AGAINST: ChainTokenList = {
   ],
   [ChainId.CFX]: [
     WRAPPED_NATIVE_CURRENCY[ChainId.CFX],
-    DAI_CFX,
     USDC_CFX,
     USDT_CFX,
+    USDT0_CFX,
+    AXCNH_CFX,
   ],
   [ChainId.CFX_TEST]: [
     WRAPPED_NATIVE_CURRENCY[ChainId.CFX_TEST],
-//    DAI_CFX_TEST,
-//    USDC_CFX_TEST,
+    //    DAI_CFX_TEST,
+    //    USDC_CFX_TEST,
     USDT_CFX_TEST,
   ],
 };
@@ -223,7 +225,7 @@ export class StaticV3SubgraphProvider implements IV3SubgraphProvider {
   constructor(
     private chainId: ChainId,
     private poolProvider: IV3PoolProvider
-  ) {}
+  ) { }
 
   public async getPools(
     tokenIn?: Token,
@@ -231,6 +233,8 @@ export class StaticV3SubgraphProvider implements IV3SubgraphProvider {
   ): Promise<V3SubgraphPool[]> {
     log.info('In static subgraph provider for V3');
     const bases = BASES_TO_CHECK_TRADES_AGAINST[this.chainId];
+
+    log.info({ bases }, 'Get base tokens of chain ' + this.chainId);
 
     const basePairs: [Token, Token][] = _.flatMap(
       bases,
@@ -244,6 +248,8 @@ export class StaticV3SubgraphProvider implements IV3SubgraphProvider {
         ...bases.map((base): [Token, Token] => [tokenOut, base])
       );
     }
+
+    log.info({ basePairs: basePairs.map(p => `${p[0].symbol}-${p[0].address} / ${p[1].symbol}-${p[1].address}`), }, 'Generate basePairs');
 
     const pairs: [Token, Token, FeeAmount][] = _(basePairs)
       .filter((tokens): tokens is [Token, Token] =>
@@ -263,7 +269,15 @@ export class StaticV3SubgraphProvider implements IV3SubgraphProvider {
       })
       .value();
 
-    log.info(
+    log.info({
+      pairs: pairs.map(p => {
+        return {
+          token0: p[0].symbol + '-' + p[0].address,
+          token1: p[1].symbol + '-' + p[1].address,
+          fee: p[2],
+        }
+      })
+    },
       `V3 Static subgraph provider about to get ${pairs.length} pools on-chain`
     );
     const poolAccessor = await this.poolProvider.getPools(pairs);

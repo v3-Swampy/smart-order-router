@@ -25,6 +25,16 @@
       "outputCapture": "std",
       "skipFiles": ["<node_internals>/**/*.js"]
       // "smartStep": true
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug examples/alpah_router.ts (ts-node CJS)",
+      "program": "${workspaceFolder}/examples/alpah_router.ts",
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": ["-r", "ts-node/register", "--enable-source-maps"],
+      "env": { "TS_NODE_PROJECT": "${workspaceFolder}/tsconfig.json" },
+      "skipFiles": ["<node_internals>/**/*.js", "node_modules/**/*.js"]
     }
   ]
 }

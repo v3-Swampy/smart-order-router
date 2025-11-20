@@ -626,6 +626,13 @@ export const USDT0_CFX = new Token(
   "USDT0",
   "Tether USDT0"
 );
+export const AXCNH_CFX = new Token(
+  ChainId.CFX,
+  "0x70bfd7f7eadf9b9827541272589a6b2bb760ae2e",
+  18,
+  "AXCNH",
+  "AXCNH"
+);
 export const DAI_CFX = new Token(
   ChainId.CFX,
   "0x74eae367d018a5f29be559752e4b67d01cc6b151",

@@ -74,9 +74,10 @@ import {
   WXDAI_GNOSIS,
   USDC_CFX,
   USDT_CFX,
-  DAI_CFX,
   //  USDC_CFX_TEST,
   USDT_CFX_TEST,
+  USDT0_CFX,
+  AXCNH_CFX,
   //  DAI_CFX_TEST,
 } from '../token-provider';
 
@@ -196,10 +197,10 @@ const BASES_TO_CHECK_TRADES_AGAINST: ChainTokenList = {
   ],
   [ChainId.CFX]: [
     WRAPPED_NATIVE_CURRENCY[ChainId.CFX],
-    DAI_CFX,
     USDC_CFX,
     USDT_CFX,
-    // USDT0_CFX,
+    USDT0_CFX,
+    AXCNH_CFX,
   ],
   [ChainId.CFX_TEST]: [
     WRAPPED_NATIVE_CURRENCY[ChainId.CFX_TEST],

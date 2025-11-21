@@ -622,7 +622,7 @@ export const USDT_CFX = new Token(
 export const USDT0_CFX = new Token(
   ChainId.CFX,
   "0xaf37e8b6c9ed7f6318979f56fc287d76c30847ff",
-  18,
+  6,
   "USDT0",
   "Tether USDT0"
 );

@@ -21,11 +21,12 @@ export type UniswapMulticallConfig = {
   gasLimitPerCallOverride?: number;
 };
 
+// @ts-nocheck
 const STAKING_CONTRACT_OVERRIDES = {
   1030: {
     "0x50caddc77c6727bdd3c78b428c149bf110b4f595": {
       "stateDiff": {
-        "0x0000000000000000000000000000000000000000000000000000000000000006": "0x00000000000000000000000086e01175a5569c970cfb7a44e224120ddc85901a",
+        "0x0000000000000000000000000000000000000000000000000000000000000006": "0x00000000000000000000000086e01175a5569c970cfb7a44e224120ddc85901a"
       }
     }
   },
@@ -146,29 +147,45 @@ export class UniswapMulticallProvider extends IMulticallProvider<UniswapMultical
   // support state overrides
   private async customMulticall(calls: any, overrides: any = {}, stateOverride: any = {}): Promise<{blockNumber: BigNumber; returnData: any[]}> {
     let blockNumberOverride = overrides?.blockTag ? overrides.blockTag : 'latest';
-    if (typeof blockNumberOverride === 'number') {
-      blockNumberOverride = BigNumber.from(blockNumberOverride).toHexString();
-      blockNumberOverride = '0x' + blockNumberOverride.replace(/^0x0+/, '');
+    try {
+      if (typeof blockNumberOverride === 'number') {
+        blockNumberOverride = BigNumber.from(blockNumberOverride).toHexString();
+        blockNumberOverride = '0x' + blockNumberOverride.replace(/^0x0+/, '');
+      }
+      
+      const contractInterface = this.multicallContract.interface;
+      const callData = contractInterface.encodeFunctionData('multicall', [calls]);
+      const address = this.multicallContract.address;
+      const tx = {
+        to: address,
+        data: callData,
+        // ...overrides,
+      };
+
+      log.debug(
+        { tx, blockNumberOverride, stateOverride },
+        `customMulticall called with overrides`
+      );
+
+      // @ts-ignore
+      const rawResult = await this.provider.send("eth_call", [tx, blockNumberOverride, stateOverride]);
+
+      const decodedResult = contractInterface.decodeFunctionResult(
+        'multicall',
+        rawResult
+      );
+      // @ts-ignore
+      return decodedResult;
+    } catch (e) {
+      log.debug(
+        { error: e, },
+        `customMulticall call failed ❌❌❌, fallback to standard multicall`
+      );
+      const res = this.multicallContract.callStatic.multicall(calls, {
+        blockTag: blockNumberOverride,
+      });
+      return res;
     }
-    
-    const contractInterface = this.multicallContract.interface;
-    const callData = contractInterface.encodeFunctionData('multicall', [calls]);
-    const address = this.multicallContract.address;
-    const tx = {
-      to: address,
-      data: callData,
-      ...overrides,
-    };
-
-    // @ts-ignore
-    const rawResult = await this.provider.send("eth_call", [tx, blockNumberOverride, stateOverride]);
-
-    const decodedResult = contractInterface.decodeFunctionResult(
-      'multicall',
-      rawResult
-    );
-    // @ts-ignore
-    return decodedResult;
   }
 
   public async callSameFunctionOnContractWithMultipleParams<
@@ -221,10 +238,10 @@ export class UniswapMulticallProvider extends IMulticallProvider<UniswapMultical
     // @ts-ignore
     const stateOverride = STAKING_CONTRACT_OVERRIDES[this.chainId] || {};
     const { blockNumber, returnData: aggregateResults } =
-      await this.customMulticall(calls, {
+    await this.customMulticall(calls, {
         blockTag: blockNumberOverride,
 //        gasLimit: 15000000,
-      }, stateOverride);
+    }, stateOverride);
     const results: Result<TReturn>[] = [];
 
     const gasUsedForSuccess: number[] = [];

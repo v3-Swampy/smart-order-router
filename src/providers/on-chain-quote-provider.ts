@@ -526,7 +526,8 @@ export class OnChainQuoteProvider implements IOnChainQuoteProvider {
                   } as QuoteBatchFailed;
                 }
 
-                if (err.message.includes('out of gas')) {
+                // conflux error message is not 'out of gas' but 'Out of gas'
+                if (err.message.includes('Out of gas')) {
                   return {
                     status: 'failed',
                     inputs,

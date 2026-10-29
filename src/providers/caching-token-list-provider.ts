@@ -150,8 +150,14 @@ export class CachingTokenListProvider
     const addressToToken: { [address: string]: Token } = {};
     const symbolToToken: { [symbol: string]: Token } = {};
 
-    for (const address of _addresses) {
-      const token = await this.getTokenByAddress(address);
+    const tokens = await Promise.all(
+      _addresses.map(async (address) => ({
+        address,
+        token: await this.getTokenByAddress(address),
+      }))
+    );
+
+    for (const { address, token } of tokens) {
       if (!token) {
         continue;
       }

@@ -1,5 +1,6 @@
 import { ChainId } from '../util/chains';
 import { log } from '../util/log';
+import { SingleFlight } from '../util/single-flight';
 
 import { ICache } from './cache';
 import { GasPrice, IGasPriceProvider } from './gas-price-provider';
@@ -12,6 +13,7 @@ import { GasPrice, IGasPriceProvider } from './gas-price-provider';
  */
 export class CachingGasStationProvider implements IGasPriceProvider {
   private GAS_KEY = (chainId: ChainId) => `gasPrice-${chainId}`;
+  private inFlight = new SingleFlight();
 
   /**
    * Creates an instance of CachingGasStationProvider.
@@ -26,7 +28,8 @@ export class CachingGasStationProvider implements IGasPriceProvider {
   ) {}
 
   public async getGasPrice(): Promise<GasPrice> {
-    const cachedGasPrice = await this.cache.get(this.GAS_KEY(this.chainId));
+    const key = this.GAS_KEY(this.chainId);
+    const cachedGasPrice = await this.cache.get(key);
 
     if (cachedGasPrice) {
       log.info(
@@ -38,9 +41,16 @@ export class CachingGasStationProvider implements IGasPriceProvider {
     }
 
     log.info('Gas station price local cache miss.');
-    const gasPrice = await this.gasPriceProvider.getGasPrice();
-    await this.cache.set(this.GAS_KEY(this.chainId), gasPrice);
+    return this.inFlight.run(key, async () => {
+      const cachedGasPriceAfterWait = await this.cache.get(key);
+      if (cachedGasPriceAfterWait) {
+        return cachedGasPriceAfterWait;
+      }
 
-    return gasPrice;
+      const gasPrice = await this.gasPriceProvider.getGasPrice();
+      await this.cache.set(key, gasPrice);
+
+      return gasPrice;
+    });
   }
 }

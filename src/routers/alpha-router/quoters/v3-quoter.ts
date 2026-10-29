@@ -185,13 +185,15 @@ export class V3Quoter extends BaseQuoter<V3Route> {
           !initializedTicksCrossedList ||
           !gasEstimate
         ) {
-          log.debug(
-            {
-              route: routeToString(route),
-              amountQuote,
-            },
-            'Dropping a null V3 quote for route.'
-          );
+          if (log.debug()) {
+            log.debug(
+              {
+                route: routeToString(route),
+                amountQuote,
+              },
+              'Dropping a null V3 quote for route.'
+            );
+          }
           continue;
         }
 

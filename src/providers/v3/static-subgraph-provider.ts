@@ -3,6 +3,7 @@ import { Token } from '@uniswap/sdk-core';
 import { FeeAmount, Pool } from '@uniswap/v3-sdk';
 import JSBI from 'jsbi';
 import _ from 'lodash';
+import NodeCache from 'node-cache';
 
 import { unparseFeeAmount } from '../../util/amounts';
 import { ChainId, WRAPPED_NATIVE_CURRENCY } from '../../util/chains';
@@ -80,6 +81,8 @@ import {
   AXCNH_CFX,
   //  DAI_CFX_TEST,
 } from '../token-provider';
+
+import { NodeJSCache } from '../cache-node';
 
 import { IV3PoolProvider } from './pool-provider';
 import { IV3SubgraphProvider, V3SubgraphPool } from './subgraph-provider';
@@ -222,6 +225,15 @@ const BASES_TO_CHECK_TRADES_AGAINST: ChainTokenList = {
  * @class StaticV3SubgraphProvider
  */
 export class StaticV3SubgraphProvider implements IV3SubgraphProvider {
+  // The list is rebuilt from one on-chain multicall per base-token pair, and
+  // getV3CandidatePools asks for it on every request. A short TTL keeps that
+  // work off the request path. These pools only rank candidates, so a quote
+  // never depends on how fresh this list is. The sweep runs on the same
+  // interval so lists for pairs that stop being requested do not pile up.
+  private readonly poolsCache = new NodeJSCache<V3SubgraphPool[]>(
+    new NodeCache({ stdTTL: 60, checkperiod: 60, useClones: false })
+  );
+
   constructor(
     private chainId: ChainId,
     private poolProvider: IV3PoolProvider
@@ -231,10 +243,25 @@ export class StaticV3SubgraphProvider implements IV3SubgraphProvider {
     tokenIn?: Token,
     tokenOut?: Token
   ): Promise<V3SubgraphPool[]> {
-    log.info('In static subgraph provider for V3');
-    const bases = BASES_TO_CHECK_TRADES_AGAINST[this.chainId];
+    const cacheKey = `${tokenIn?.address.toLowerCase() ?? ''}:${
+      tokenOut?.address.toLowerCase() ?? ''
+    }`;
+    const cached = await this.poolsCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
-    log.info({ bases }, 'Get base tokens of chain ' + this.chainId);
+    const pools = await this.fetchPools(tokenIn, tokenOut);
+    await this.poolsCache.set(cacheKey, pools);
+
+    return pools;
+  }
+
+  private async fetchPools(
+    tokenIn?: Token,
+    tokenOut?: Token
+  ): Promise<V3SubgraphPool[]> {
+    const bases = BASES_TO_CHECK_TRADES_AGAINST[this.chainId];
 
     const basePairs: [Token, Token][] = _.flatMap(
       bases,
@@ -248,8 +275,6 @@ export class StaticV3SubgraphProvider implements IV3SubgraphProvider {
         ...bases.map((base): [Token, Token] => [tokenOut, base])
       );
     }
-
-    log.info({ basePairs: basePairs.map(p => `${p[0].symbol}-${p[0].address} / ${p[1].symbol}-${p[1].address}`), }, 'Generate basePairs');
 
     const pairs: [Token, Token, FeeAmount][] = _(basePairs)
       .filter((tokens): tokens is [Token, Token] =>
@@ -269,16 +294,13 @@ export class StaticV3SubgraphProvider implements IV3SubgraphProvider {
       })
       .value();
 
-    log.info({
-      pairs: pairs.map(p => {
-        return {
-          token0: p[0].symbol + '-' + p[0].address,
-          token1: p[1].symbol + '-' + p[1].address,
-          fee: p[2],
-        }
-      })
-    },
-      `V3 Static subgraph provider about to get ${pairs.length} pools on-chain`
+    log.info(
+      {
+        chainId: this.chainId,
+        baseTokens: bases.length,
+        poolQueries: pairs.length,
+      },
+      'V3 static subgraph provider querying pools on-chain'
     );
     const poolAccessor = await this.poolProvider.getPools(pairs);
     const pools = poolAccessor.getAllPools();

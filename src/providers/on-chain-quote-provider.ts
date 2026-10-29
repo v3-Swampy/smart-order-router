@@ -499,39 +499,49 @@ export class OnChainQuoteProvider implements IOnChainQuoteProvider {
                   results,
                 } as QuoteBatchSuccess;
               } catch (err: any) {
+                const errMessage =
+                  typeof err?.message === 'string'
+                    ? err.message
+                    : String(err ?? 'Unknown error');
+
                 log.error(
-                  `Failed to call callSameFunctionOnContractWithMultipleParams`, functionName, err.error.body
+                  {
+                    functionName,
+                    error: errMessage.slice(0, 500),
+                  },
+                  `Failed to call callSameFunctionOnContractWithMultipleParams`
                 );
+
                 // Error from providers have huge messages that include all the calldata and fill the logs.
                 // Catch them and rethrow with shorter message.
-                if (err.message.includes('header not found')) {
+                if (errMessage.includes('header not found')) {
                   return {
                     status: 'failed',
                     inputs,
                     reason: new ProviderBlockHeaderError(
-                      err.message.slice(0, 500)
+                      errMessage.slice(0, 500)
                     ),
                   } as QuoteBatchFailed;
                 }
 
-                if (err.message.includes('timeout')) {
+                if (/timeout/i.test(errMessage)) {
                   return {
                     status: 'failed',
                     inputs,
                     reason: new ProviderTimeoutError(
                       `Req ${idx}/${quoteStates.length}. Request had ${
                         inputs.length
-                      } inputs. ${err.message.slice(0, 500)}`
+                      } inputs. ${errMessage.slice(0, 500)}`
                     ),
                   } as QuoteBatchFailed;
                 }
 
-                // conflux error message is not 'out of gas' but 'Out of gas'
-                if (err.message.includes('Out of gas')) {
+                // Some providers return "Out of gas", others "out of gas".
+                if (/out of gas/i.test(errMessage)) {
                   return {
                     status: 'failed',
                     inputs,
-                    reason: new ProviderGasError(err.message.slice(0, 500)),
+                    reason: new ProviderGasError(errMessage.slice(0, 500)),
                   } as QuoteBatchFailed;
                 }
 
@@ -539,7 +549,7 @@ export class OnChainQuoteProvider implements IOnChainQuoteProvider {
                   status: 'failed',
                   inputs,
                   reason: new Error(
-                    `Unknown error from provider: ${err.message.slice(0, 500)}`
+                    `Unknown error from provider: ${errMessage.slice(0, 500)}`
                   ),
                 } as QuoteBatchFailed;
               }
@@ -852,6 +862,7 @@ export class OnChainQuoteProvider implements IOnChainQuoteProvider {
     const routesQuotes: RouteWithQuotes<TRoute>[] = [];
 
     const quotesResultsByRoute = _.chunk(quoteResults, amounts.length);
+    const logFailedQuotes = log.debug();
 
     const debugFailedQuotes: {
       amount: string;
@@ -870,17 +881,19 @@ export class OnChainQuoteProvider implements IOnChainQuoteProvider {
         ) => {
           const amount = amounts[index]!;
           if (!quoteResult.success) {
-            const percent = (100 / amounts.length) * (index + 1);
+            if (logFailedQuotes) {
+              const percent = (100 / amounts.length) * (index + 1);
 
-            const amountStr = amount.toFixed(
-              Math.min(amount.currency.decimals, 2)
-            );
-            const routeStr = routeToString(route);
-            debugFailedQuotes.push({
-              route: routeStr,
-              percent,
-              amount: amountStr,
-            });
+              const amountStr = amount.toFixed(
+                Math.min(amount.currency.decimals, 2)
+              );
+              const routeStr = routeToString(route);
+              debugFailedQuotes.push({
+                route: routeStr,
+                percent,
+                amount: amountStr,
+              });
+            }
 
             return {
               amount,
@@ -915,7 +928,7 @@ export class OnChainQuoteProvider implements IOnChainQuoteProvider {
           .join(',')
       );
 
-      log.info(
+      log.debug(
         {
           failedQuotes: _.map(
             failedFlat,

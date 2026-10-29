@@ -125,6 +125,44 @@ export type MixedRouteGetCandidatePoolsParams = {
   chainId: ChainId;
 };
 
+/**
+ * Removes pools that contain a blocked token.
+ *
+ * Resolve each unique token address once and in parallel instead of doing two
+ * sequential cache lookups per pool.
+ */
+async function filterPoolsByBlockedTokens<
+  TPool extends { token0: { id: string }; token1: { id: string } }
+>(
+  pools: TPool[],
+  blockedTokenListProvider?: ITokenListProvider
+): Promise<TPool[]> {
+  const tokenListProvider = blockedTokenListProvider;
+  if (!tokenListProvider) {
+    return pools;
+  }
+
+  const tokenAddresses = new Set<string>();
+  for (const pool of pools) {
+    tokenAddresses.add(pool.token0.id);
+    tokenAddresses.add(pool.token1.id);
+  }
+
+  const blockedTokens = new Set<string>();
+  await Promise.all(
+    Array.from(tokenAddresses).map(async (address) => {
+      if (await tokenListProvider.getTokenByAddress(address)) {
+        blockedTokens.add(address);
+      }
+    })
+  );
+
+  return pools.filter(
+    (pool) =>
+      !blockedTokens.has(pool.token0.id) && !blockedTokens.has(pool.token1.id)
+  );
+}
+
 const baseTokensByChain: { [chainId in ChainId]?: Token[] } = {
   [ChainId.MAINNET]: [
     USDC_MAINNET,
@@ -251,22 +289,10 @@ export async function getV3CandidatePools({
   );
 
   // Only consider pools where neither tokens are in the blocked token list.
-  let filteredPools: V3SubgraphPool[] = allPools;
-  if (blockedTokenListProvider) {
-    filteredPools = [];
-    for (const pool of allPools) {
-      const token0InBlocklist =
-        await blockedTokenListProvider.getTokenByAddress(pool.token0.id);
-      const token1InBlocklist =
-        await blockedTokenListProvider.getTokenByAddress(pool.token1.id);
-
-      if (token0InBlocklist || token1InBlocklist) {
-        continue;
-      }
-
-      filteredPools.push(pool);
-    }
-  }
+  const filteredPools = await filterPoolsByBlockedTokens(
+    allPools,
+    blockedTokenListProvider
+  );
 
   const subgraphPoolsSorted = _(filteredPools)
     .sortBy((tokenListPool) => -tokenListPool.tvlUSD)
@@ -524,22 +550,24 @@ export async function getV3CandidatePools({
       tokenAccessor.getTokenByAddress(s.token1.id)?.symbol ?? s.token1.id
     }/${s.feeTier}`;
 
-  log.info(
-    {
-      topByBaseWithTokenIn: topByBaseWithTokenIn.map(printV3SubgraphPool),
-      topByBaseWithTokenOut: topByBaseWithTokenOut.map(printV3SubgraphPool),
-      topByTVL: topByTVL.map(printV3SubgraphPool),
-      topByTVLUsingTokenIn: topByTVLUsingTokenIn.map(printV3SubgraphPool),
-      topByTVLUsingTokenOut: topByTVLUsingTokenOut.map(printV3SubgraphPool),
-      topByTVLUsingTokenInSecondHops:
-        topByTVLUsingTokenInSecondHops.map(printV3SubgraphPool),
-      topByTVLUsingTokenOutSecondHops:
-        topByTVLUsingTokenOutSecondHops.map(printV3SubgraphPool),
-      top2DirectSwap: top2DirectSwapPool.map(printV3SubgraphPool),
-      top2EthQuotePool: top2EthQuoteTokenPool.map(printV3SubgraphPool),
-    },
-    `V3 Candidate Pools`
-  );
+  if (log.info()) {
+    log.info(
+      {
+        topByBaseWithTokenIn: topByBaseWithTokenIn.map(printV3SubgraphPool),
+        topByBaseWithTokenOut: topByBaseWithTokenOut.map(printV3SubgraphPool),
+        topByTVL: topByTVL.map(printV3SubgraphPool),
+        topByTVLUsingTokenIn: topByTVLUsingTokenIn.map(printV3SubgraphPool),
+        topByTVLUsingTokenOut: topByTVLUsingTokenOut.map(printV3SubgraphPool),
+        topByTVLUsingTokenInSecondHops:
+          topByTVLUsingTokenInSecondHops.map(printV3SubgraphPool),
+        topByTVLUsingTokenOutSecondHops:
+          topByTVLUsingTokenOutSecondHops.map(printV3SubgraphPool),
+        top2DirectSwap: top2DirectSwapPool.map(printV3SubgraphPool),
+        top2EthQuotePool: top2EthQuoteTokenPool.map(printV3SubgraphPool),
+      },
+      `V3 Candidate Pools`
+    );
+  }
 
   const tokenPairsRaw = _.map<
     V3SubgraphPool,
@@ -658,22 +686,10 @@ export async function getV2CandidatePools({
   );
 
   // Only consider pools where neither tokens are in the blocked token list.
-  let filteredPools: V2SubgraphPool[] = allPools;
-  if (blockedTokenListProvider) {
-    filteredPools = [];
-    for (const pool of allPools) {
-      const token0InBlocklist =
-        await blockedTokenListProvider.getTokenByAddress(pool.token0.id);
-      const token1InBlocklist =
-        await blockedTokenListProvider.getTokenByAddress(pool.token1.id);
-
-      if (token0InBlocklist || token1InBlocklist) {
-        continue;
-      }
-
-      filteredPools.push(pool);
-    }
-  }
+  const filteredPools = await filterPoolsByBlockedTokens(
+    allPools,
+    blockedTokenListProvider
+  );
 
   const subgraphPoolsSorted = _(filteredPools)
     .sortBy((tokenListPool) => -tokenListPool.reserve)
@@ -911,22 +927,24 @@ export async function getV2CandidatePools({
       tokenAccessor.getTokenByAddress(s.token1.id)?.symbol ?? s.token1.id
     }`;
 
-  log.info(
-    {
-      topByBaseWithTokenIn: topByBaseWithTokenIn.map(printV2SubgraphPool),
-      topByBaseWithTokenOut: topByBaseWithTokenOut.map(printV2SubgraphPool),
-      topByTVL: topByTVL.map(printV2SubgraphPool),
-      topByTVLUsingTokenIn: topByTVLUsingTokenIn.map(printV2SubgraphPool),
-      topByTVLUsingTokenOut: topByTVLUsingTokenOut.map(printV2SubgraphPool),
-      topByTVLUsingTokenInSecondHops:
-        topByTVLUsingTokenInSecondHops.map(printV2SubgraphPool),
-      topByTVLUsingTokenOutSecondHops:
-        topByTVLUsingTokenOutSecondHops.map(printV2SubgraphPool),
-      top2DirectSwap: topByDirectSwapPool.map(printV2SubgraphPool),
-      top2EthQuotePool: topByEthQuoteTokenPool.map(printV2SubgraphPool),
-    },
-    `V2 Candidate pools`
-  );
+  if (log.info()) {
+    log.info(
+      {
+        topByBaseWithTokenIn: topByBaseWithTokenIn.map(printV2SubgraphPool),
+        topByBaseWithTokenOut: topByBaseWithTokenOut.map(printV2SubgraphPool),
+        topByTVL: topByTVL.map(printV2SubgraphPool),
+        topByTVLUsingTokenIn: topByTVLUsingTokenIn.map(printV2SubgraphPool),
+        topByTVLUsingTokenOut: topByTVLUsingTokenOut.map(printV2SubgraphPool),
+        topByTVLUsingTokenInSecondHops:
+          topByTVLUsingTokenInSecondHops.map(printV2SubgraphPool),
+        topByTVLUsingTokenOutSecondHops:
+          topByTVLUsingTokenOutSecondHops.map(printV2SubgraphPool),
+        top2DirectSwap: topByDirectSwapPool.map(printV2SubgraphPool),
+        top2EthQuotePool: topByEthQuoteTokenPool.map(printV2SubgraphPool),
+      },
+      `V2 Candidate pools`
+    );
+  }
 
   const tokenPairsRaw = _.map<V2SubgraphPool, [Token, Token] | undefined>(
     subgraphPools,

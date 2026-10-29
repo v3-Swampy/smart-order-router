@@ -1,5 +1,3 @@
-import Logger from 'bunyan';
-
 import { log } from './log';
 
 export enum MetricLoggerUnit {
@@ -46,24 +44,24 @@ interface MetricContext {
 }
 
 export class MetricLogger extends IMetric {
-  private log: Logger;
+  private fields: Record<string, unknown>;
 
   constructor(context?: MetricContext) {
     super();
-    this.log = log.child(context || {});
+    this.fields = { ...(context || {}) };
   }
 
   public setProperty(key: string, value: unknown): void {
-    this.log = this.log.child({ [key]: value });
+    this.fields[key] = value;
   }
 
   public putDimensions(dimensions: Record<string, string>): void {
-    this.log = this.log.child(dimensions);
+    Object.assign(this.fields, dimensions);
   }
 
   public putMetric(key: string, value: number, unit?: MetricLoggerUnit): void {
-    this.log.info(
-      { key, value, unit },
+    log.info(
+      { ...this.fields, key, value, unit },
       `[Metric]: ${key}: ${value} | ${unit ? unit : ''}`
     );
   }

@@ -128,13 +128,25 @@ export function computeAllRoutes<
 
   computeRoutes(tokenIn, tokenOut, [], poolsUsed);
 
+  const protocol = routes[0]?.protocol;
   log.info(
     {
-      routes: routes.map(routeToString),
-      pools: pools.map(poolToString),
+      routeCount: routes.length,
+      poolCount: pools.length,
+      protocol,
     },
-    `Computed ${routes.length} possible routes for type ${routes[0]?.protocol}.`
+    `Computed ${routes.length} possible routes for type ${protocol}.`
   );
+
+  if (log.debug()) {
+    log.debug(
+      {
+        routes: routes.map(routeToString),
+        pools: pools.map(poolToString),
+      },
+      `Computed routes for type ${protocol}.`
+    );
+  }
 
   return routes;
 }

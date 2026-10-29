@@ -1,4 +1,5 @@
 import { ChainId } from '../../util/chains';
+import { SingleFlight } from '../../util/single-flight';
 
 import { ICache } from './../cache';
 import { IV3SubgraphProvider, V3SubgraphPool } from './subgraph-provider';
@@ -11,6 +12,7 @@ import { IV3SubgraphProvider, V3SubgraphPool } from './subgraph-provider';
  */
 export class CachingV3SubgraphProvider implements IV3SubgraphProvider {
   private SUBGRAPH_KEY = (chainId: ChainId) => `subgraph-pools-${chainId}`;
+  private inFlight = new SingleFlight();
 
   /**
    * Creates an instance of CachingV3SubgraphProvider.
@@ -25,16 +27,26 @@ export class CachingV3SubgraphProvider implements IV3SubgraphProvider {
   ) {}
 
   public async getPools(): Promise<V3SubgraphPool[]> {
-    const cachedPools = await this.cache.get(this.SUBGRAPH_KEY(this.chainId));
+    const key = this.SUBGRAPH_KEY(this.chainId);
+    const cachedPools = await this.cache.get(key);
 
     if (cachedPools) {
       return cachedPools;
     }
 
-    const pools = await this.subgraphProvider.getPools();
+    // A cache miss at TTL expiry can otherwise cause every concurrent request
+    // to paginate the entire subgraph at the same time.
+    return this.inFlight.run(key, async () => {
+      const cachedPoolsAfterWait = await this.cache.get(key);
+      if (cachedPoolsAfterWait) {
+        return cachedPoolsAfterWait;
+      }
 
-    await this.cache.set(this.SUBGRAPH_KEY(this.chainId), pools);
+      const pools = await this.subgraphProvider.getPools();
 
-    return pools;
+      await this.cache.set(key, pools);
+
+      return pools;
+    });
   }
 }

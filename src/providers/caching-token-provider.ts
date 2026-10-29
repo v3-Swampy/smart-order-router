@@ -2,6 +2,7 @@ import { Token } from '@uniswap/sdk-core';
 import _ from 'lodash';
 
 import { ChainId, log, WRAPPED_NATIVE_CURRENCY } from '../util';
+import { SingleFlight } from '../util/single-flight';
 
 import { ICache } from './cache';
 import {
@@ -185,6 +186,7 @@ export const CACHE_SEED_TOKENS: {
 export class CachingTokenProviderWithFallback implements ITokenProvider {
   private CACHE_KEY = (chainId: ChainId, address: string) =>
     `token-${chainId}-${address}`;
+  private inFlight = new SingleFlight();
 
   constructor(
     protected chainId: ChainId,
@@ -195,16 +197,31 @@ export class CachingTokenProviderWithFallback implements ITokenProvider {
     protected fallbackTokenProvider?: ITokenProvider
   ) {}
 
-  public async getTokens(_addresses: string[]): Promise<TokenAccessor> {
+  public getTokens(addresses: string[]): Promise<TokenAccessor> {
+    const key = _(addresses)
+      .map((address) => address.toLowerCase())
+      .uniq()
+      .sort()
+      .join(',');
+
+    return this.inFlight.run(key, () => this.getTokensInternal(addresses));
+  }
+
+  private async getTokensInternal(
+    _addresses: string[]
+  ): Promise<TokenAccessor> {
     const seedTokens = CACHE_SEED_TOKENS[this.chainId];
 
     if (seedTokens) {
-      for (const token of Object.values(seedTokens)) {
-        await this.tokenCache.set(
-          this.CACHE_KEY(this.chainId, token.address.toLowerCase()),
-          token
-        );
-      }
+      // Re-add expired seeds, but avoid rewriting keys that are still present.
+      await Promise.all(
+        Object.values(seedTokens).map(async (token) => {
+          const key = this.CACHE_KEY(this.chainId, token.address.toLowerCase());
+          if (!(await this.tokenCache.has(key))) {
+            await this.tokenCache.set(key, token);
+          }
+        })
+      );
     }
 
     const addressToToken: { [address: string]: Token } = {};
@@ -218,13 +235,21 @@ export class CachingTokenProviderWithFallback implements ITokenProvider {
     const addressesToFindInPrimary = [];
     const addressesToFindInSecondary = [];
 
-    for (const address of addresses) {
-      if (await this.tokenCache.has(this.CACHE_KEY(this.chainId, address))) {
-        addressToToken[address.toLowerCase()] = (await this.tokenCache.get(
-          this.CACHE_KEY(this.chainId, address)
-        ))!;
-        symbolToToken[addressToToken[address]!.symbol!] =
-          (await this.tokenCache.get(this.CACHE_KEY(this.chainId, address)))!;
+    const cachedTokens = await Promise.all(
+      addresses.map(async (address) => {
+        return [
+          address,
+          await this.tokenCache.get(this.CACHE_KEY(this.chainId, address)),
+        ] as const;
+      })
+    );
+
+    for (const [address, token] of cachedTokens) {
+      if (token) {
+        addressToToken[address] = token;
+        if (token.symbol) {
+          symbolToToken[token.symbol.toLowerCase()] = token;
+        }
       } else {
         addressesToFindInPrimary.push(address);
       }
@@ -252,10 +277,12 @@ export class CachingTokenProviderWithFallback implements ITokenProvider {
 
         if (token) {
           addressToToken[address.toLowerCase()] = token;
-          symbolToToken[addressToToken[address]!.symbol!] = token;
+          if (token.symbol) {
+            symbolToToken[token.symbol.toLowerCase()] = token;
+          }
           await this.tokenCache.set(
             this.CACHE_KEY(this.chainId, address.toLowerCase()),
-            addressToToken[address]!
+            token
           );
         } else {
           addressesToFindInSecondary.push(address);
@@ -283,10 +310,12 @@ export class CachingTokenProviderWithFallback implements ITokenProvider {
         const token = secondaryTokenAccessor.getTokenByAddress(address);
         if (token) {
           addressToToken[address.toLowerCase()] = token;
-          symbolToToken[addressToToken[address]!.symbol!] = token;
+          if (token.symbol) {
+            symbolToToken[token.symbol.toLowerCase()] = token;
+          }
           await this.tokenCache.set(
             this.CACHE_KEY(this.chainId, address.toLowerCase()),
-            addressToToken[address]!
+            token
           );
         }
       }

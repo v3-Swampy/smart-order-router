@@ -174,13 +174,15 @@ export class V2Quoter extends BaseQuoter<V2Route> {
         const { quote, amount } = amountQuote;
 
         if (!quote) {
-          log.debug(
-            {
-              route: routeToString(route),
-              amountQuote,
-            },
-            'Dropping a null V2 quote for route.'
-          );
+          if (log.debug()) {
+            log.debug(
+              {
+                route: routeToString(route),
+                amountQuote,
+              },
+              'Dropping a null V2 quote for route.'
+            );
+          }
           continue;
         }
 

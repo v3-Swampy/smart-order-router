@@ -198,13 +198,15 @@ export class MixedQuoter extends BaseQuoter<MixedRoute> {
           !initializedTicksCrossedList ||
           !gasEstimate
         ) {
-          log.debug(
-            {
-              route: routeToString(route),
-              amountQuote,
-            },
-            'Dropping a null mixed quote for route.'
-          );
+          if (log.debug()) {
+            log.debug(
+              {
+                route: routeToString(route),
+                amountQuote,
+              },
+              'Dropping a null mixed quote for route.'
+            );
+          }
           continue;
         }
 

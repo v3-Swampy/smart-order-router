@@ -86,6 +86,7 @@ import {
 import { BestSwapRoute, getBestSwapRoute } from './functions/best-swap-route';
 import { calculateRatioAmountIn } from './functions/calculate-ratio-amount-in';
 import { CandidatePoolsBySelectionCriteria, PoolId, } from './functions/get-candidate-pools';
+import { calculateAmountDistribution, getAmountsForPercents } from './functions/split-amounts';
 import { IGasModel, IOnChainGasModelFactory, IV2GasModelFactory } from './gas-models/gas-model';
 import { MixedRouteHeuristicGasModelFactory } from './gas-models/mixedRoute/mixed-route-heuristic-gas-model';
 import { V2HeuristicGasModelFactory } from './gas-models/v2/v2-heuristic-gas-model';
@@ -1223,7 +1224,7 @@ export class AlphaRouter
       const v3PercentsFromCache = v3Routes.map((cachedRoute) => cachedRoute.percent);
       percents.push(...v3PercentsFromCache);
 
-      const v3Amounts = v3PercentsFromCache.map((percent) => amount.multiply(new Fraction(percent, 100)));
+      const v3Amounts = getAmountsForPercents(amount, v3PercentsFromCache);
 
       quotePromises.push(
         this.v3Quoter.getQuotes(
@@ -1243,7 +1244,7 @@ export class AlphaRouter
       const v2PercentsFromCache = v2Routes.map((cachedRoute) => cachedRoute.percent);
       percents.push(...v2PercentsFromCache);
 
-      const v2Amounts = v2PercentsFromCache.map((percent) => amount.multiply(new Fraction(percent, 100)));
+      const v2Amounts = getAmountsForPercents(amount, v2PercentsFromCache);
 
       quotePromises.push(
         // When we fetch the quotes in V2, we are not calling the `onChainProvider` like on v3Routes and mixedRoutes
@@ -1267,7 +1268,7 @@ export class AlphaRouter
       const mixedPercentsFromCache = mixedRoutes.map((cachedRoute) => cachedRoute.percent);
       percents.push(...mixedPercentsFromCache);
 
-      const mixedAmounts = mixedPercentsFromCache.map((percent) => amount.multiply(new Fraction(percent, 100)));
+      const mixedAmounts = getAmountsForPercents(amount, mixedPercentsFromCache);
 
       quotePromises.push(
         this.mixedQuoter.getQuotes(
@@ -1501,23 +1502,14 @@ export class AlphaRouter
     return [v3GasModel, mixedRouteGasModel];
   }
 
-  // Note multiplications here can result in a loss of precision in the amounts (e.g. taking 50% of 101)
-  // This is reconcilled at the end of the algorithm by adding any lost precision to one of
-  // the splits in the route.
+  // Candidates are integer amounts: only the integer quotient is ever used by the
+  // quoter, the simulator and the calldata. Any remainder left by the flooring is
+  // reconciled on the integer level in getBestSwapRoute().
   private getAmountDistribution(
     amount: CurrencyAmount,
     routingConfig: AlphaRouterConfig
   ): [number[], CurrencyAmount[]] {
-    const { distributionPercent } = routingConfig;
-    const percents = [];
-    const amounts = [];
-
-    for (let i = 1; i <= 100 / distributionPercent; i++) {
-      percents.push(i * distributionPercent);
-      amounts.push(amount.multiply(new Fraction(i * distributionPercent, 100)));
-    }
-
-    return [percents, amounts];
+    return calculateAmountDistribution(amount, routingConfig.distributionPercent);
   }
 
   private async buildSwapAndAddMethodParameters(

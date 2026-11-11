@@ -827,4 +827,47 @@ describe('get best swap route', () => {
     ).toBeTruthy();
     expect(routes).toHaveLength(1);
   });
+
+  test('reconciles the integer route amounts of a split route', async () => {
+    // 101 split 50/50 is 50.5 per route. Floored to 50 + 50 the swap would only
+    // spend 100; the missing 1 must be added back to one of the routes.
+    const amount = CurrencyAmount.fromRawAmount(USDC, 101);
+    const percents = [50, 100];
+    const routesWithQuotes: RouteWithValidQuote[] = [
+      ...buildV3RouteWithValidQuotes(
+        v3Route1,
+        TradeType.EXACT_INPUT,
+        amount,
+        [60, 100],
+        percents
+      ),
+      ...buildV3RouteWithValidQuotes(
+        v3Route2,
+        TradeType.EXACT_INPUT,
+        amount,
+        [60, 100],
+        percents
+      ),
+    ];
+
+    const swapRoute = await getBestSwapRoute(
+      amount,
+      percents,
+      routesWithQuotes,
+      TradeType.EXACT_INPUT,
+      ChainId.MAINNET,
+      { ...mockRoutingConfig, distributionPercent: 50 }
+    );
+
+    expect(swapRoute).not.toBeNull();
+    expect(swapRoute!.routes).toHaveLength(2);
+    const total = swapRoute!.routes.reduce(
+      (sum, route) => JSBI.add(sum, route.amount.quotient),
+      JSBI.BigInt(0)
+    );
+    expect(total.toString()).toBe('101');
+    expect(
+      swapRoute!.routes.every((route) => route.amount.denominator.toString() === '1')
+    ).toBeTruthy();
+  });
 });

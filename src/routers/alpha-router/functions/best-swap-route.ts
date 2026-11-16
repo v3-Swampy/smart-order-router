@@ -15,6 +15,7 @@ import { AlphaRouterConfig } from '../alpha-router';
 import { IGasModel, L1ToL2GasCosts, usdGasTokensByChain } from '../gas-models';
 
 import { RouteWithValidQuote, V3RouteWithValidQuote, } from './../entities/route-with-valid-quote';
+import { reconcileSplitAmounts } from './split-amounts';
 
 export type BestSwapRoute = {
   quote: CurrencyAmount;
@@ -89,26 +90,24 @@ export async function getBestSwapRoute(
   // Due to potential loss of precision when taking percentages of the input it is possible that the sum of the amounts of each
   // route of our optimal quote may not add up exactly to exactIn or exactOut.
   //
-  // We check this here, and if there is a mismatch
-  // add the missing amount to a random route. The missing amount size should be neglible so the quote should still be highly accurate.
+  // Only the integer quotient of a route amount is ever quoted and encoded in
+  // calldata, so the comparison MUST be done on integers. Summing the fractional
+  // CurrencyAmounts always returns the exact requested amount (e.g. 95/100 + 5/100)
+  // and therefore hides the per-route flooring that loses a few drip on split trades.
+  // Normalise every route to its quotient, then add the missing integer amount to
+  // the largest route (smallest relative slippage impact). The missing amount is
+  // bounded by routes.length - 1 units, so the quote stays accurate; for
+  // EXACT_OUTPUT the extra output is covered by the client's absolute slack on
+  // amountInMaximum plus the existing refundETH for native input.
   const { routes: routeAmounts } = swapRoute;
-  const totalAmount = _.reduce(
-    routeAmounts,
-    (total, routeAmount) => total.add(routeAmount.amount),
-    CurrencyAmount.fromRawAmount(routeAmounts[0]!.amount.currency, 0)
-  );
-
-  const missingAmount = amount.subtract(totalAmount);
-  if (missingAmount.greaterThan(0)) {
+  const missingAmount = reconcileSplitAmounts(amount, routeAmounts);
+  if (JSBI.greaterThan(missingAmount, JSBI.BigInt(0))) {
     log.info(
       {
-        missingAmount: missingAmount.quotient.toString(),
+        missingAmount: missingAmount.toString(),
       },
-      `Optimal route's amounts did not equal exactIn/exactOut total. Adding missing amount to last route in array.`
+      `Optimal route's integer amounts did not equal exactIn/exactOut total. Added the missing amount to the largest route.`
     );
-
-    routeAmounts[routeAmounts.length - 1]!.amount =
-      routeAmounts[routeAmounts.length - 1]!.amount.add(missingAmount);
   }
 
   log.info(
